@@ -1,62 +1,76 @@
-"""Environment variables and trading constants."""
+"""
+Central configuration for the swing-trading alert dashboard.
 
+Loads credentials from .env and defines every tunable constant used by the
+indicator, signal, and risk modules. This file performs no I/O beyond
+reading environment variables on import, so it's always safe to import
+(including from tests) even before .env is filled in. Credential presence
+is only enforced when validate_credentials() is called explicitly - do
+that once, at startup, in main.py or the connectivity check.
+
+Parameter choices here trace back to Section 2 of PROJECT_PLAN.pdf
+(the evidence-based rule set). Don't change a value here without updating
+that document.
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Risk and sizing
-RISK_PER_TRADE_PCT = 0.01
-PORTFOLIO_HEAT_CAP_PCT = 0.06
-
-# ATR multipliers
-ATR_STOP_MULTIPLIER = 2.0
-ATR_TRAIL_MULTIPLIER = 3.0
-CHANDELIER_ATR_MULTIPLIER = 3.0
-
-# Regime filter
-REGIME_FAST_MA = 50
-REGIME_SLOW_MA = 200
-
-# Momentum confirmation thresholds
-RSI_OVERSOLD = 30
-RSI_OVERBOUGHT = 70
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
-@dataclass(frozen=True)
-class Config:
-    alpaca_api_key: str
-    alpaca_secret_key: str
-    alpaca_base_url: str
-    pushover_user_key: str
-    pushover_api_token: str
-    paper_trading: bool = True
-    watchlist: tuple[str, ...] = ()
+class ConfigError(RuntimeError):
+    """Raised when required configuration is missing or invalid."""
 
 
-def _parse_bool(value: str | None, default: bool = True) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
+ALPACA_BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+
+PUSHOVER_USER_KEY = os.getenv("PUSHOVER_USER_KEY", "")
+PUSHOVER_API_TOKEN = os.getenv("PUSHOVER_API_TOKEN", "")
 
 
-def _parse_watchlist(value: str | None) -> tuple[str, ...]:
-    if not value:
-        return ()
-    return tuple(symbol.strip().upper() for symbol in value.split(",") if symbol.strip())
+def validate_credentials() -> None:
+    required = {
+        "ALPACA_API_KEY": ALPACA_API_KEY,
+        "ALPACA_SECRET_KEY": ALPACA_SECRET_KEY,
+        "PUSHOVER_USER_KEY": PUSHOVER_USER_KEY,
+        "PUSHOVER_API_TOKEN": PUSHOVER_API_TOKEN,
+    }
+    missing = [name for name, val in required.items() if not val]
+    if missing:
+        raise ConfigError(
+            "Missing required environment variables: " + ", ".join(missing)
+            + ". Copy .env.example to .env and fill these in."
+        )
 
 
-def load_config() -> Config:
-    load_dotenv()
+RISK_PCT_PER_TRADE: float = 0.005
+PORTFOLIO_HEAT_CAP: float = 0.06
+CONCENTRATION_CAP: float = 0.15
+MIN_REWARD_RISK: float = 2.0
+BTC_CORRELATION_THRESHOLD: float = 0.7
 
-    return Config(
-        alpaca_api_key=os.getenv("ALPACA_API_KEY", ""),
-        alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY", ""),
-        alpaca_base_url=os.getenv("ALPACA_BASE_URL", ""),
-        pushover_user_key=os.getenv("PUSHOVER_USER_KEY", ""),
-        pushover_api_token=os.getenv("PUSHOVER_API_TOKEN", ""),
-        paper_trading=_parse_bool(os.getenv("PAPER_TRADING"), default=True),
-        watchlist=_parse_watchlist(os.getenv("WATCHLIST")),
-    )
+REGIME_FAST_MA: int = 50
+REGIME_SLOW_MA: int = 200
+
+PULLBACK_EMA_PERIODS: tuple[int, ...] = (20, 50)
+BREAKOUT_VOLUME_MULTIPLIER: float = 1.5
+
+ATR_PERIOD: int = 22
+ATR_MULTIPLIER: dict[str, float] = {
+    "stock": 3.0,
+    "crypto": 4.0,
+}
+PROFIT_TARGET_R_MULTIPLE: float = 2.5
+
+STOCK_UNIVERSE: list[str] = []
+CRYPTO_UNIVERSE: list[str] = ["BTC/USD", "ETH/USD"]
+
+
+def asset_class(symbol: str) -> str:
+    return "crypto" if "/" in symbol else "stock"
