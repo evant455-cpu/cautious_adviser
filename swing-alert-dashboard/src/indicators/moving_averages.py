@@ -1,13 +1,6 @@
-"""Simple and exponential moving averages."""
-
-from __future__ import annotations
-
-import pandas as pd
-
-
-def sma(series: pd.Series, period: int) -> pd.Series:
-    return series.rolling(window=period, min_periods=period).mean()
-
-
-def ema(series: pd.Series, period: int) -> pd.Series:
-    return series.ewm(span=period, adjust=False, min_periods=period).mean()
+"""
+Not yet implemented. See PROJECT_PLAN.pdf section 5.1 for build order.
+Placeholder only - contains no real logic. Failing loudly on import is
+intentional: nothing should silently run unbuilt signal or risk logic.
+"""
+raise NotImplementedError("src/indicators/moving_averages.py: not yet implemented.")
