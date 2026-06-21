@@ -1,6 +1,26 @@
 """
-Not yet implemented. See PROJECT_PLAN.pdf section 5.1 for build order.
-Placeholder only - contains no real logic. Failing loudly on import is
-intentional: nothing should silently run unbuilt signal or risk logic.
+Minimal Pushover client: one function, send a push notification.
 """
-raise NotImplementedError("src/notifications/pushover_client.py: not yet implemented.")
+from __future__ import annotations
+
+import requests
+
+from src import config
+
+PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json"
+
+
+def send_notification(message: str, title: str | None = None) -> dict:
+    """Send a push notification. Raises on any non-2xx response - alerts
+    are the whole point of this system, so this should never fail silently."""
+    payload = {
+        "token": config.PUSHOVER_API_TOKEN,
+        "user": config.PUSHOVER_USER_KEY,
+        "message": message,
+    }
+    if title:
+        payload["title"] = title
+
+    response = requests.post(PUSHOVER_API_URL, data=payload, timeout=10)
+    response.raise_for_status()
+    return response.json()
